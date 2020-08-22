@@ -19,6 +19,7 @@ https = require("ssl.https")
 
 local lastMessage = ""
 local lastMessageSenderPID = 0
+local lastGotMessageID = 0
 
 function DiscordRelay.OnServerPostInit()
     if (DiscordRelay.config.discord.webhook_url == "" or DiscordRelay.config.discord.webhook_url == nil) then
@@ -124,6 +125,41 @@ function DiscordRelay.Discord_SendMessage(eventStatus, pid, message)
     end
 end
 
+function DiscordRelay.Discord_SendDeathMessage(eventStatus, pid)
+    local deathReason = "committed suicide"
+
+    if tes3mp.DoesPlayerHavePlayerKiller(pid) then
+        local killerPid = tes3mp.GetPlayerKillerPid(pid)
+
+        if pid ~= killerPid then
+            deathReason = "was killed by player " .. logicHandler.GetChatName(killerPid)
+        end
+    else
+        local killerName = tes3mp.GetPlayerKillerName(pid)
+
+        if killerName ~= "" then
+            deathReason = "was killed by " .. killerName
+        end
+    end
+
+    local message = logicHandler.GetChatName(pid) .. " " .. deathReason .. ".\n"
+
+    DiscordRelay.Discord_SendMessage(eventStatus, pid, message)
+end
+
+function DiscordRelay.Discord_SendConnectMessage(eventStatus, pid)
+    local message = logicHandler.GetChatName(pid) .. " has connected to the server! :)"
+    DiscordRelay.Discord_SendMessage(eventStatus, pid, message)
+end
+
+function DiscordRelay.Discord_SendDisconnectMessage(eventStatus, pid)
+    local message = logicHandler.GetChatName(pid) .. " has disconnected from the server :("
+    DiscordRelay.Discord_SendMessage(eventStatus, pid, message)
+end
+
 customEventHooks.registerValidator("OnPlayerSendMessage", DiscordRelay.Discord_SendMessage)
+customEventHooks.registerValidator("OnPlayerDisconnect", DiscordRelay.Discord_SendDisconnectMessage)
+customEventHooks.registerHandler("OnPlayerDeath", DiscordRelay.Discord_SendDeathMessage)
+customEventHooks.registerHandler("OnPlayerAuthentified", DiscordRelay.Discord_SendConnectMessage)
 customEventHooks.registerHandler("OnServerPostInit", DiscordRelay.OnServerPostInit)
 customEventHooks.registerHandler("OnServerPostInit", DiscordRelay.Discord_PingTest)
